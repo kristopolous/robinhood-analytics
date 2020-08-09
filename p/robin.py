@@ -7,13 +7,16 @@ import sys
 import json
 import pprint
 import getpass
+import configparser
 import dateutil.parser as dp
 
 from . import lib
 from . import db
 
 my_trader = False
-config = {}
+config = configparser.ConfigParser()
+config.read('secrets.ini')
+config = config['config']
 
 def login(username=False, password=False, device_token=False, force=False):
   global my_trader

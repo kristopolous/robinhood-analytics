@@ -24,6 +24,19 @@ _SCHEMA = {
     ('created_at', 'datetime default current_timestamp'),
     ('last_seen', 'datetime default current_timestamp'),
   ],
+
+  'stock' : [
+    ('id', 'integer primary key autoincrement'),
+    ('ticker', 'text unique'),
+    ('name', 'text'),
+    ('easyname', 'text'),
+    ('industry', 'text'),
+    ('sector', 'text'),
+    ('description', 'text'),
+    ('raw', 'text'),
+    ('created_at', 'datetime default current_timestamp')
+  ],
+
   'instruments': [
     ('id', 'integer primary key autoincrement'),
     ('ticker', 'text unique'),
@@ -210,8 +223,7 @@ def upgrade():
 
       db['conn'].commit()
 
-
-def connect(db_file=None):
+def connect(db_file=None, with_dict=False):
   # A "singleton pattern" or some other fancy $10-world style of maintaining
   # the database connection throughout the execution of the script.
   # Returns the database instance.
@@ -234,6 +246,10 @@ def connect(db_file=None):
     sys.stderr.write("Info: Creating db file %s\n" % db_file)
 
   conn = sqlite3.connect(db_file)
+
+  if with_dict:
+    conn.row_factory = dict_factory
+
   instance.update({
     'conn': conn,
     'c': conn.cursor()
@@ -301,6 +317,12 @@ def insert(table, data, silent=False):
       _log.warning("Unable to insert a record {}: {}".format(qstr, json.dumps(values)))
 
   return last
+
+def dict_factory(cursor, row):
+  d = {}
+  for idx, col in enumerate(cursor.description):
+    d[col[0]] = row[idx]
+  return d
 
 
 def set_log(logger):
