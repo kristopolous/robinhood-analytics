@@ -2,9 +2,9 @@
 import sys
 import logging
 
-from p import robin
-from p import lib
-from p import db
+import robin
+import lib
+import db
 
 lib.upgrade()
 

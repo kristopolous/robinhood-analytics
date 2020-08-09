@@ -7,16 +7,13 @@ import sys
 import json
 import pprint
 import getpass
-import configparser
 import dateutil.parser as dp
 
-from . import lib
-from . import db
+import lib
+import db
 
 my_trader = False
-config = configparser.ConfigParser()
-config.read('secrets.ini')
-config = config['config']
+config = lib.get_config()
 
 def login(username=False, password=False, device_token=False, force=False):
   global my_trader
@@ -38,13 +35,6 @@ def login(username=False, password=False, device_token=False, force=False):
     print("Password incorrect. Please try again")
     login(username, force)
 
-  """
-  token = my_trader.headers['Authorization']
-  lib.r.hset('auth', username, token)
-  print("Gathering history")
-  dividends()
-  my_history()
-  """
 
 def getInstrument(url):
     key = url.split('/')[-2]

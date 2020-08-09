@@ -3,11 +3,12 @@ import urllib.request
 import json
 import hashlib
 import time
+import configparser
 
 import redis
 
-from . import robin
-from . import db
+import robin
+import db
 
 
 r = redis.Redis(
@@ -25,6 +26,19 @@ def showError(what):
 
 def upgrade():
     db.upgrade()
+
+
+def get_config():
+  cp = configparser.ConfigParser()
+  cp.read('secrets.ini')
+  config = dict(cp['config'])
+
+  for i in ['alpha', 'world']:
+    val = config.get(i)
+    if val:
+      config[i] = val.split(',')
+
+  return config
 
 
 def cache_get(url, force=False, wait_until=False):
