@@ -1,14 +1,9 @@
 #!/usr/bin/env python3
 import urllib.request
-import json
 import hashlib
 import time
 import configparser
-
 import redis
-
-import robin
-import db
 
 
 r = redis.Redis(
@@ -18,14 +13,6 @@ r = redis.Redis(
     charset="utf-8",
     decode_responses=True
 )
-
-
-def showError(what):
-    print("Error: {}".format(what))
-
-
-def upgrade():
-    db.upgrade()
 
 
 def get_config():
