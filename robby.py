@@ -3,10 +3,9 @@ import sys
 import logging
 
 import robin
-import lib
 import db
 
-lib.upgrade()
+db.upgrade()
 
 FORMAT = '%(asctime)-15s %(message)s'
 logging.basicConfig(format=FORMAT, level=logging.DEBUG)
