@@ -107,15 +107,6 @@ def getquote(what):
 
 def getuser(what):
     return '0'
-    if 'id' not in db.user:
-        myid = lib.r.hget('id', db.user['email'])
-
-        if not myid and 'account' in what:
-            myid = what['account'].split('/')[-2]
-            lib.r.hset('id', db.user['email'], myid)
-        db.user['id'] = myid
-
-    return db.user['id']
 
 
 def dividends(data=False):
@@ -424,6 +415,3 @@ def positions():
     return {'computed': computed, 'positions': positionList}
 
 
-def get_yesterday(fields='*'):
-    return db.run('select {} from historical group by ticker order by begin desc'.format(
-        fields)).fetchall()
