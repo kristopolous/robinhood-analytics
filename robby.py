@@ -4,8 +4,6 @@ import logging
 
 import robin
 import db
-from inspect import isfunction
-import types
 
 db.upgrade()
 
