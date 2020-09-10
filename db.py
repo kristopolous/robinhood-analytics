@@ -5,7 +5,7 @@ import time
 import json
 from threading import Lock
 
-DefaultDbFile = '/tmp/db/trades.db'
+DefaultDbFile = '/tmp/trades.db'
 
 _PROCESSOR = {
     "users"
