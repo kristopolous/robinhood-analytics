@@ -69,14 +69,11 @@ def getInstrument(url):
 
 
 def historical(instrumentList=['MSFT']):
-    for instrument in instrumentList:
-        try:
-            data = my_trader.get_historical_quotes(instrument, 'day', 'week')
-        except BaseException:
-          print("forcing login")
-          login(force=True)
-          return historical(instrumentList)
+    if not my_trader:
+      login()
 
+    for instrument in instrumentList:
+        data = my_trader.get_historical_quotes(instrument, 'day', 'week')
         duration = 60 * 24
         if data:
             for row in data['historicals']:
@@ -103,9 +100,11 @@ def getquote(what):
 def dividends(data=False):
     print("Dividends")
     if not data:
-        tradeList = my_trader.dividends()
+      if not my_trader:
+        login()
+      tradeList = my_trader.dividends()
     else:
-        tradeList = data
+      tradeList = data
 
     for trade in tradeList['results']:
         db.insert('trades', {
@@ -387,24 +386,25 @@ def hist(ticker):
 
 
 def positions():
-    positionList = my_trader.positions()
-    tickerList = []
-    computed = 0
-    for position in positionList['results']:
-        position['instrument'] = json.loads(
-            getInstrument(position['instrument']))
-        if float(position['quantity']) > 0:
-            symbol = position['instrument']['symbol']
-            res = getquote(symbol)
-            # pprint.pprint(res)
-            last_price = res['last_extended_hours_trade_price']
-            if last_price is None:
-                last_price = res['last_trade_price']
+  if not my_trader:
+    login()
+  positionList = my_trader.positions()
+  tickerList = []
+  computed = 0
+  for position in positionList['results']:
+      position['instrument'] = json.loads(
+          getInstrument(position['instrument']))
+      if float(position['quantity']) > 0:
+          symbol = position['instrument']['symbol']
+          res = getquote(symbol)
+          # pprint.pprint(res)
+          last_price = res['last_extended_hours_trade_price']
+          if last_price is None:
+              last_price = res['last_trade_price']
 
-            computed += float(position['quantity']) * float(last_price)
-            popularity = my_trader.get_popularity(symbol)
+          computed += float(position['quantity']) * float(last_price)
 
-            print("{:30s} {:5s} {:5.0f} {:10} {}".format(
-                position['instrument']['name'][:29], symbol, float(position['quantity']), last_price, popularity))
+          print("{:30s} {:5s} {:5.2f} {:10}".format(
+              position['instrument']['name'][:29], symbol, float(position['quantity']), last_price))
 
-    return {'computed': computed, 'positions': positionList}
+  return {'computed': computed, 'positions': positionList}
