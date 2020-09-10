@@ -4,6 +4,8 @@ import logging
 
 import robin
 import db
+from inspect import isfunction
+import types
 
 db.upgrade()
 
@@ -15,7 +17,9 @@ db.set_log(logger)
 while True:
     print("> ", end="")
     cmd = input().split(' ')
-    if cmd[0] == 'q':
+    if cmd[0] == 'help':
+      help(robin)
+    elif cmd[0] == 'q':
       sys.exit(0)
-    if cmd[0]:
+    elif cmd[0]:
       eval("robin." + cmd[0])(*cmd[1:])

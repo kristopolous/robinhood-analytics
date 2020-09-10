@@ -105,19 +105,6 @@ def getquote(what):
     return json.loads(res)
 
 
-def getuser(what):
-    return '0'
-    if 'id' not in db.user:
-        myid = lib.r.hget('id', db.user['email'])
-
-        if not myid and 'account' in what:
-            myid = what['account'].split('/')[-2]
-            lib.r.hset('id', db.user['email'], myid)
-        db.user['id'] = myid
-
-    return db.user['id']
-
-
 def dividends(data=False):
     print("Dividends")
     if not data:
@@ -127,7 +114,7 @@ def dividends(data=False):
 
     for trade in tradeList['results']:
         db.insert('trades', {
-            'user_id': getuser(trade),
+            'user_id': 0,
             'side': 'dividend',
             'instrument': trade['instrument'].split('/')[-2],
             'quantity': trade['position'],
@@ -142,6 +129,9 @@ def dividends(data=False):
 
 
 def my_history(data=False):
+  """
+  Gets a user's trading history and populates it into the database
+  """
   print("All History")
   if not my_trader:
     login()
@@ -160,7 +150,7 @@ def my_history(data=False):
 
         try:
             db.insert('trades', {
-                'user_id': getuser(trade),
+                'user_id': 0,
                 'side': trade['side'],
                 'instrument': trade['instrument'].split('/')[-2],
                 'quantity': execution['quantity'],
@@ -209,6 +199,9 @@ def l():
   print("\n".join(sorted(symbolList)))
   
 def hist(ticker):
+  """
+  Find the performance history for a particular instrument
+  """
   ticker = ticker.lower()
   uid = False
   symbolList = []
@@ -422,8 +415,3 @@ def positions():
                 position['instrument']['name'][:29], symbol, float(position['quantity']), last_price, popularity))
 
     return {'computed': computed, 'positions': positionList}
-
-
-def get_yesterday(fields='*'):
-    return db.run('select {} from historical group by ticker order by begin desc'.format(
-        fields)).fetchall()
