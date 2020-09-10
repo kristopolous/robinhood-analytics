@@ -91,11 +91,6 @@ def historical(instrumentList=['MSFT']):
                 })
 
 
-def inject(res):
-    res['instrument'] = json.loads(getInstrument(res['instrument']))
-    return res
-
-
 def getquote(what):
     key = 's:{}'.format(what)
     res = lib.r.get(key)
@@ -161,7 +156,7 @@ def my_history(data=False):
         except BaseException as ex:
           return
 
-    inject(trade)
+    trade['instrument'] = json.loads(getInstrument(trade['instrument']))
 
     print(
         "{} {:5s} {:6s}".format(
@@ -389,8 +384,6 @@ def hist(ticker):
   ]))
 
 
-def whoami():
-    pprint.pprint(db.user)
 
 
 def positions():
