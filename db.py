@@ -12,19 +12,6 @@ _PROCESSOR = {
 }
 
 _SCHEMA = {
-  'users': [
-    ('id', 'integer primary key autoincrement'),
-    # this bizarre second id is needed for flask-login, see
-    # https://flask-login.readthedocs.io/en/0.4.1/ for the proofs.
-    ('user_id', 'text unique'),
-    ('email', 'text unique'),
-    ('password', 'text'),
-    ('score', 'integer default 0'),
-    ('frequency', 'integer default 0'),
-    ('created_at', 'datetime default current_timestamp'),
-    ('last_seen', 'datetime default current_timestamp'),
-  ],
-
   'stock' : [
     ('id', 'integer primary key autoincrement'),
     ('ticker', 'text unique'),
@@ -45,7 +32,6 @@ _SCHEMA = {
   ],
   'trades': [
     ('id', 'integer primary key autoincrement'),
-    ('user_id', 'text'),
     ('rbn_id', 'text unique'),
     ('created', 'datetime'),
     ('side', 'text'),

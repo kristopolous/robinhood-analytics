@@ -5,7 +5,6 @@ import urllib
 import time
 import sys
 import json
-import pprint
 import hashlib
 import os
 import configparser
@@ -218,85 +217,73 @@ def getquote(what):
   return json.loads(res)
 
 
-def dividends(data=False):
+def get_history():
+  """
+  Get your trading history and populates it into the database
+  """
+  def dividends(data=False):
     print("Dividends")
+
     if not data:
-      if not my_trader:
-        login()
       tradeList = my_trader.dividends()
     else:
       tradeList = data
 
     for trade in tradeList['results']:
-        db.insert('trades', {
-            'user_id': 0,
-            'side': 'dividend',
-            'instrument': trade['instrument'].split('/')[-2],
-            'quantity': trade['position'],
-            'price': trade['rate'],
-            'created': trade['paid_at'],
-            'rbn_id': trade['id']
-        })
+      db.insert('trades', {
+        'side': 'dividend',
+        'instrument': trade['instrument'].split('/')[-2],
+        'quantity': trade['position'],
+        'price': trade['rate'],
+        'created': trade['paid_at'],
+        'rbn_id': trade['id']
+      })
 
     if tradeList['next']:
-        data = my_trader.session.get(tradeList['next'])
-        dividends(data.json())
+      data = my_trader.session.get(tradeList['next'])
+      dividends(data.json())
 
 
-def my_history(data=False):
-  """
-  Get your trading history and populates it into the database
-  """
-  print("All History")
-  if not my_trader:
-    login()
+  def trades(data=False):
+    print("trades")
 
-  if not data:
-    tradeList = my_trader.order_history()
-  else:
-    tradeList = data
+    if not data:
+      tradeList = my_trader.order_history()
+    else:
+      tradeList = data
 
-  if 'detail' in tradeList:
-    lib.showError(tradeList['detail'])
-    login(force=True)
-
-  for trade in tradeList['results']:
-    for execution in trade['executions']:
+    for trade in tradeList['results']:
+      for execution in trade['executions']:
 
         try:
-            db.insert('trades', {
-                'user_id': 0,
-                'side': trade['side'],
-                'instrument': trade['instrument'].split('/')[-2],
-                'quantity': execution['quantity'],
-                'price': execution['price'],
-                'created': execution['timestamp'],
-                'rbn_id': execution['id']
-            })
+          db.insert('trades', {
+            'side': trade['side'],
+            'instrument': trade['instrument'].split('/')[-2],
+            'quantity': execution['quantity'],
+            'price': execution['price'],
+            'created': execution['timestamp'],
+            'rbn_id': execution['id']
+          })
         except BaseException as ex:
           return
 
-    trade['instrument'] = json.loads(getInstrument(trade['instrument']))
+      trade['instrument'] = json.loads(getInstrument(trade['instrument']))
 
-    print(
-        "{} {:5s} {:6s}".format(
-            trade['created_at'],
-            trade['side'],
-            trade['instrument']['symbol']))
+      print(
+          "{} {:5s} {:6s}".format(
+              trade['created_at'],
+              trade['side'],
+              trade['instrument']['symbol']))
 
-  if tradeList['next']:
-      data = my_trader.session.get(tradeList['next'])
-      my_history(data.json())
+    if tradeList['next']:
+        data = my_trader.session.get(tradeList['next'])
+        trades(data.json())
 
+  if not my_trader:
+    login()
 
-def analyze():
-  res = db.run(
-      'select side,count(*),sum(quantity*price) from trades where user_id = ? group by side',
-      (db.user['id'],
-       )).fetchall()
-
-  print(res)
-  pass
+  trades()
+  dividends()
 
 
 def l():
@@ -305,7 +292,7 @@ def l():
   """
   symbolList = []
 
-  for k,v in lib.r.hgetall('inst').items():
+  for k,v in r.hgetall('inst').items():
     v = json.loads(v)
     trades = db.run( 'select count(*) from trades where instrument = ?', (k, )).fetchone()
     if trades[0] > 0:
@@ -320,10 +307,11 @@ def hist(ticker):
   """
   Find the performance history for a particular instrument
   """
+
   ticker = ticker.lower()
   uid = False
   symbolList = []
-  for k,v in lib.r.hgetall('inst').items():
+  for k,v in r.hgetall('inst').items():
     v = json.loads(v)
     if v.get('symbol').lower() == ticker:
       uid = k
@@ -509,16 +497,17 @@ def hist(ticker):
 def positions():
   if not my_trader:
     login()
+
   positionList = my_trader.positions()
   tickerList = []
   computed = 0
+
   for position in positionList['results']:
     position['instrument'] = json.loads(
       getInstrument(position['instrument']))
     if float(position['quantity']) > 0:
       symbol = position['instrument']['symbol']
       res = getquote(symbol)
-      # pprint.pprint(res)
       last_price = res['last_extended_hours_trade_price']
       if last_price is None:
         last_price = res['last_trade_price']

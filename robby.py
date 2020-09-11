@@ -25,4 +25,7 @@ while True:
   elif cmd[0] == 'q':
     sys.exit(0)
   elif cmd[0]:
-    eval("robin." + cmd[0])(*cmd[1:])
+    try:
+      eval("robin." + cmd[0])(*cmd[1:])
+    except Exception as ex:
+      print("Woops: {}".format(ex))
