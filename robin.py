@@ -192,20 +192,17 @@ def historical(stockList=['MSFT']):
     data = my_trader.get_historical_quotes(instrument, 'day', 'week')
     duration = 60 * 24
     if data:
-      for row in data.get('results'):
-        print(row)
-      """
-      for row in data['historicals']:
-        db.insert('historical', {
-          'ticker': instrument,
-          'open': row['open_price'],
-          'close': row['close_price'],
-          'low': row['low_price'],
-          'high': row['high_price'],
-          'begin': row['begins_at'],
-          'duration': duration
-        })
-      """
+      for instrument in data.get('results'):
+        for row in instrument.get('historicals'):
+          db.insert('historical', {
+            'ticker': instrument,
+            'open': row['open_price'],
+            'close': row['close_price'],
+            'low': row['low_price'],
+            'high': row['high_price'],
+            'begin': row['begins_at'],
+            'duration': duration
+          })
 
 
 def getquote(what):
@@ -293,13 +290,13 @@ def my_history(data=False):
 
 
 def analyze():
-    res = db.run(
-        'select side,count(*),sum(quantity*price) from trades where user_id = ? group by side',
-        (db.user['id'],
-         )).fetchall()
+  res = db.run(
+      'select side,count(*),sum(quantity*price) from trades where user_id = ? group by side',
+      (db.user['id'],
+       )).fetchall()
 
-    print(res)
-    pass
+  print(res)
+  pass
 
 
 def l():

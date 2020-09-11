@@ -13,11 +13,16 @@ logger = logging.getLogger(__name__)
 db.set_log(logger)
 
 while True:
-    print("> ", end="")
+  print("> ", end="")
+
+  try:
     cmd = input().split(' ')
-    if cmd[0] == 'help':
-      help(robin)
-    elif cmd[0] == 'q':
-      sys.exit(0)
-    elif cmd[0]:
-      eval("robin." + cmd[0])(*cmd[1:])
+  except:
+    sys.exit(0)
+
+  if cmd[0] == 'help':
+    help(robin)
+  elif cmd[0] == 'q':
+    sys.exit(0)
+  elif cmd[0]:
+    eval("robin." + cmd[0])(*cmd[1:])

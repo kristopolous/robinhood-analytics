@@ -5,7 +5,7 @@ import time
 import json
 from threading import Lock
 
-DefaultDbFile = '/tmp/trades.db'
+DefaultDbFile = 'trades.db'
 
 _PROCESSOR = {
     "users"
@@ -294,17 +294,17 @@ def _insert(table, data):
 
 
 def upsert(table, data):
-    qstr, key_list, values = _insert(table, data)
-    update_list = ["{}=?".format(key) for key in key_list]
+  qstr, key_list, values = _insert(table, data)
+  update_list = ["{}=?".format(key) for key in key_list]
 
-    qstr += "on conflict(id) do update set {}".format(','.join(update_list))
+  qstr += "on conflict(id) do update set {}".format(','.join(update_list))
 
-    try:
-        res, last = run(qstr, values + values, with_last = True)
-        return last
+  try:
+    res, last = run(qstr, values + values, with_last = True)
+    return last
 
-    except:
-        _log.warning("Unable to upsert a record {}".format(','.join([str(x) for x in values])))
+  except Exception as exc:
+    _log.warning("Unable to upsert a record {} ({})".format(','.join([str(x) for x in values]), exc))
 
 
 def insert(table, data, silent=False):
@@ -312,9 +312,10 @@ def insert(table, data, silent=False):
   qstr, key_list, values = _insert(table, data)
   try:
     res, last = run(qstr, values, with_last=True)
-  except BaseException: 
+
+  except Exception as exc:
     if not silent:
-      _log.warning("Unable to insert a record {}: {}".format(qstr, json.dumps(values)))
+      _log.warning("Unable to insert a record {}: {} ({})".format(qstr, json.dumps(values), exc))
 
   return last
 

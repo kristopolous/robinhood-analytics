@@ -1,3 +1,5 @@
 secrets.ini
 ticker-list.txt
+trades.db
+cache
 *.pyc
