@@ -6,14 +6,76 @@ import time
 import sys
 import json
 import pprint
-import getpass
+import hashlib
+import os
+import configparser
 import dateutil.parser as dp
 
-import lib
 import db
 
 my_trader = False
-config = lib.get_config()
+
+r = redis.Redis(
+    host='localhost',
+    port=6379,
+    db=0,
+    charset="utf-8",
+    decode_responses=True
+)
+
+def get_config():
+  cp = configparser.ConfigParser()
+  cp.read('secrets.ini')
+  config = dict(cp['config'])
+
+  for i in ['alpha', 'world']:
+    val = config.get(i)
+    if val:
+      config[i] = val.split(',')
+
+  return config
+
+config = get_config()
+
+
+def cache_get(url, append = False, force = False, wait_until = False, cache_time = 60 * 60 * 24 * 30):
+  if not os.path.exists('cache'):
+    os.mkdir('cache')
+
+  fname = hashlib.md5(url.encode('utf-8')).hexdigest()
+  cname = "cache/{}".format(fname)
+  key = "c:{}".format(fname)
+
+  if not r.exists(key) or force:
+    if wait_until and wait_until - time.time() > 0:
+      time.sleep(wait_until - time.time())
+
+    if append:
+      url += append
+
+    req = urllib.request.Request(url)
+
+    with urllib.request.urlopen(req) as response:
+      r.set(key, '1', cache_time)
+      with open(cname, 'w') as f:
+        data = response.read().decode('utf-8')
+        f.write(data)
+
+
+  if not os.path.isfile(cname) or os.path.getsize(cname) == 0:
+    data = r.get(key)
+    if len(data) < 3:
+      return cache_get(url, append = append, force = True, wait_until = wait_until, cache_time = cache_time)
+
+    with open(cname, 'w') as f:
+      f.write(r.get(key))
+
+    r.set(key, '1')
+
+  with open(cname, 'r') as f:
+    res = f.read()
+    return res
+
 
 def login(username=False, password=False, device_token=False, force=False):
   global my_trader
@@ -23,69 +85,127 @@ def login(username=False, password=False, device_token=False, force=False):
     password = config.get('password')
     device_token = config.get('token')
 
-  if not password:
-    password = getpass.getpass()
-
   try:
     my_trader = Robinhood(username=username, password=password, device_token=device_token)
     print(my_trader)
 
   except Exception as ex:
     raise ex
-    print("Password incorrect. Please try again")
-    login(username, force)
+    print("Password incorrect. Please check your config")
+    sys.exit(1)
+
+def get_archive(stockList):
+  global last
+
+  if type(stockList) is str:
+    stockList = [stockList]
+
+  ix = 0
+  ttl = 3 * len(stockList)
+
+  print("Gathering {} stocks".format(len(stockList)))
+  alpha = config.get('alpha')
+  if not alpha:
+    raise("Hey you need to get an alpha advantage key")
+
+  for name,duration in [('MONTHLY', 365.25/12), ('DAILY', 1), ('WEEKLY',7)]:
+    duration *= (60 * 24)
+    for stock in stockList:
+      stock = stock.upper()
+      print("{:6.3f} {} {} ".format(100 * ix / ttl, name, stock))
+
+      force = False
+      while True:
+        ix += 1
+        url = "https://www.alphavantage.co/query?function=TIME_SERIES_{}_ADJUSTED&symbol={}".format(name, stock)
+        cache_time = max(60 * 60 * 24, duration / 2)
+        resraw = cache_get(url, 
+          force = force, 
+          append = '&apikey={}'.format(alpha[ix % len(alpha)]), 
+          cache_time = cache_time
+        )
+        last = time.time()
+
+        resjson = json.loads(resraw)
+        if "Note" in resjson or 'Error Message' in resjson:
+          force = True
+
+        else:
+          break
+
+      for k,v in resjson.items():
+        if k == 'Meta Data':
+          continue
+
+        for date,row in v.items():
+          db.insert('historical', {
+            'ticker': stock,
+            'open': row['1. open'],
+            'high': row['2. high'],
+            'low': row['3. low'],
+            'close': row['4. close'],
+            'begin': date,
+            'duration': duration
+          })
 
 
 def getInstrument(url):
-    key = url.split('/')[-2]
-    res = lib.r.hget('inst', key)
+  key = url.split('/')[-2]
+  res = lib.r.hget('inst', key)
 
-    try:
-        res = res.decode("utf-8")
-    except BaseException:
-        pass
+  try:
+    res = res.decode("utf-8")
+  except BaseException:
+    pass
 
-    if not res:
-        req = urllib.request.Request(url)
+  if not res:
+    req = urllib.request.Request(url)
 
-        with urllib.request.urlopen(req) as response:
-            res = response.read()
+    with urllib.request.urlopen(req) as response:
+      res = response.read()
 
-            lib.r.hset('inst', key, res)
+      lib.r.hset('inst', key, res)
 
-    resJson = json.loads(res)
+  resJson = json.loads(res)
 
-    name = resJson['simple_name']
+  name = resJson['simple_name']
 
-    if not name:
-      name = resJson['name']
+  if not name:
+    name = resJson['name']
 
-      db.insert('instruments', {
-        'ticker': resJson['symbol'],
-        'name': name
-      })
+    db.insert('instruments', {
+      'ticker': resJson['symbol'],
+      'name': name
+    })
 
-    return res
+  return res
 
 
-def historical(instrumentList=['MSFT']):
-    if not my_trader:
-      login()
+def historical(stockList=['MSFT']):
+  if not my_trader:
+    login()
 
-    for instrument in instrumentList:
-        data = my_trader.get_historical_quotes(instrument, 'day', 'week')
-        duration = 60 * 24
-        if data:
-            for row in data['historicals']:
-                db.insert('historical', {
-                    'ticker': instrument,
-                    'open': row['open_price'],
-                    'close': row['close_price'],
-                    'low': row['low_price'],
-                    'high': row['high_price'],
-                    'begin': row['begins_at'],
-                    'duration': duration
-                })
+  if type(stockList) is str:
+    stockList = [stockList]
+
+  for instrument in stockList:
+    data = my_trader.get_historical_quotes(instrument, 'day', 'week')
+    duration = 60 * 24
+    if data:
+      for row in data.get('results'):
+        print(row)
+      """
+      for row in data['historicals']:
+        db.insert('historical', {
+          'ticker': instrument,
+          'open': row['open_price'],
+          'close': row['close_price'],
+          'low': row['low_price'],
+          'high': row['high_price'],
+          'begin': row['begins_at'],
+          'duration': duration
+        })
+      """
 
 
 def getquote(what):
@@ -94,6 +214,8 @@ def getquote(what):
     if not res:
       if not my_trader:
         login()
+      my_trader.print_quote(what)
+
       res = json.dumps(my_trader.get_quote(what))
       lib.r.set(key, res, 900)
     return json.loads(res)
