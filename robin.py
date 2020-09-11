@@ -151,7 +151,7 @@ def get_archive(stockList):
 
 def getInstrument(url):
   key = url.split('/')[-2]
-  res = lib.r.hget('inst', key)
+  res = r.hget('inst', key)
 
   try:
     res = res.decode("utf-8")
@@ -164,7 +164,7 @@ def getInstrument(url):
     with urllib.request.urlopen(req) as response:
       res = response.read()
 
-      lib.r.hset('inst', key, res)
+      r.hset('inst', key, res)
 
   resJson = json.loads(res)
 
@@ -192,8 +192,8 @@ def historical(stockList=['MSFT']):
     data = my_trader.get_historical_quotes(instrument, 'day', 'week')
     duration = 60 * 24
     if data:
-      for instrument in data.get('results'):
-        for row in instrument.get('historicals'):
+      for payload in data.get('results'):
+        for row in payload.get('historicals'):
           db.insert('historical', {
             'ticker': instrument,
             'open': row['open_price'],
@@ -206,16 +206,16 @@ def historical(stockList=['MSFT']):
 
 
 def getquote(what):
-    key = 's:{}'.format(what)
-    res = lib.r.get(key)
-    if not res:
-      if not my_trader:
-        login()
-      my_trader.print_quote(what)
+  key = 's:{}'.format(what)
+  res = r.get(key)
+  if not res:
+    if not my_trader:
+      login()
+    my_trader.print_quote(what)
 
-      res = json.dumps(my_trader.get_quote(what))
-      lib.r.set(key, res, 900)
-    return json.loads(res)
+    res = json.dumps(my_trader.get_quote(what))
+    r.set(key, res, 900)
+  return json.loads(res)
 
 
 def dividends(data=False):
@@ -301,7 +301,7 @@ def analyze():
 
 def l():
   """
-  lists the instruments in the portfolio
+  Lists the instruments in the portfolio
   """
   symbolList = []
 
@@ -506,9 +506,6 @@ def hist(ticker):
     "{}".format(round(reality))
   ]))
 
-
-
-
 def positions():
   if not my_trader:
     login()
@@ -516,19 +513,19 @@ def positions():
   tickerList = []
   computed = 0
   for position in positionList['results']:
-      position['instrument'] = json.loads(
-          getInstrument(position['instrument']))
-      if float(position['quantity']) > 0:
-          symbol = position['instrument']['symbol']
-          res = getquote(symbol)
-          # pprint.pprint(res)
-          last_price = res['last_extended_hours_trade_price']
-          if last_price is None:
-              last_price = res['last_trade_price']
+    position['instrument'] = json.loads(
+      getInstrument(position['instrument']))
+    if float(position['quantity']) > 0:
+      symbol = position['instrument']['symbol']
+      res = getquote(symbol)
+      # pprint.pprint(res)
+      last_price = res['last_extended_hours_trade_price']
+      if last_price is None:
+        last_price = res['last_trade_price']
 
-          computed += float(position['quantity']) * float(last_price)
+      computed += float(position['quantity']) * float(last_price)
 
-          print("{:30s} {:5s} {:5.2f} {:10}".format(
-              position['instrument']['name'][:29], symbol, float(position['quantity']), last_price))
+      print("{:30s} {:5s} {:5.2f} {:10}".format(
+        position['instrument']['name'][:29], symbol, float(position['quantity']), last_price))
 
   return {'computed': computed, 'positions': positionList}
