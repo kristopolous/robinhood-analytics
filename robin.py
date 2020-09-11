@@ -92,8 +92,10 @@ def getquote(what):
     key = 's:{}'.format(what)
     res = lib.r.get(key)
     if not res:
-        res = json.dumps(my_trader.get_quote(what))
-        lib.r.set(key, res, 900)
+      if not my_trader:
+        login()
+      res = json.dumps(my_trader.get_quote(what))
+      lib.r.set(key, res, 900)
     return json.loads(res)
 
 
@@ -124,7 +126,7 @@ def dividends(data=False):
 
 def my_history(data=False):
   """
-  Gets a user's trading history and populates it into the database
+  Get your trading history and populates it into the database
   """
   print("All History")
   if not my_trader:
@@ -179,6 +181,9 @@ def analyze():
 
 
 def l():
+  """
+  lists the instruments in the portfolio
+  """
   symbolList = []
 
   for k,v in lib.r.hgetall('inst').items():
