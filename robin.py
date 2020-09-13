@@ -1,97 +1,14 @@
 #!/usr/bin/env python3
 from pyrh import Robinhood
-import redis
 import urllib
 import time
 import sys
 import json
-import hashlib
 import os
-import configparser
-import dateutil.parser as dp
 
 import db
+import lib
 
-my_trader = False
-
-r = redis.Redis(
-    host='localhost',
-    port=6379,
-    db=0,
-    charset="utf-8",
-    decode_responses=True
-)
-
-def get_config():
-  cp = configparser.ConfigParser()
-  cp.read('secrets.ini')
-  config = dict(cp['config'])
-
-  for i in ['alpha', 'world']:
-    val = config.get(i)
-    if val:
-      config[i] = val.split(',')
-
-  return config
-
-config = get_config()
-
-
-def cache_get(url, append = False, force = False, wait_until = False, cache_time = 60 * 60 * 24 * 30):
-  if not os.path.exists('cache'):
-    os.mkdir('cache')
-
-  fname = hashlib.md5(url.encode('utf-8')).hexdigest()
-  cname = "cache/{}".format(fname)
-  key = "c:{}".format(fname)
-
-  if not r.exists(key) or force:
-    if wait_until and wait_until - time.time() > 0:
-      time.sleep(wait_until - time.time())
-
-    if append:
-      url += append
-
-    req = urllib.request.Request(url)
-
-    with urllib.request.urlopen(req) as response:
-      r.set(key, '1', cache_time)
-      with open(cname, 'w') as f:
-        data = response.read().decode('utf-8')
-        f.write(data)
-
-
-  if not os.path.isfile(cname) or os.path.getsize(cname) == 0:
-    data = r.get(key)
-    if len(data) < 3:
-      return cache_get(url, append = append, force = True, wait_until = wait_until, cache_time = cache_time)
-
-    with open(cname, 'w') as f:
-      f.write(r.get(key))
-
-    r.set(key, '1')
-
-  with open(cname, 'r') as f:
-    res = f.read()
-    return res
-
-
-def login(username=False, password=False, device_token=False, force=False):
-  global my_trader
-
-  if not username:
-    username = config.get('user')
-    password = config.get('password')
-    device_token = config.get('token')
-
-  try:
-    my_trader = Robinhood(username=username, password=password, device_token=device_token)
-    print(my_trader)
-
-  except Exception as ex:
-    raise ex
-    print("Password incorrect. Please check your config")
-    sys.exit(1)
 
 def get_archive(stockList):
   global last
@@ -150,7 +67,7 @@ def get_archive(stockList):
 
 def getInstrument(url):
   key = url.split('/')[-2]
-  res = r.hget('inst', key)
+  res = lib.r.hget('inst', key)
 
   try:
     res = res.decode("utf-8")
@@ -163,7 +80,7 @@ def getInstrument(url):
     with urllib.request.urlopen(req) as response:
       res = response.read()
 
-      r.hset('inst', key, res)
+      lib.r.hset('inst', key, res)
 
   resJson = json.loads(res)
 
@@ -181,14 +98,13 @@ def getInstrument(url):
 
 
 def historical(stockList=['MSFT']):
-  if not my_trader:
-    login()
+  lib.login()
 
   if type(stockList) is str:
     stockList = [stockList]
 
   for instrument in stockList:
-    data = my_trader.get_historical_quotes(instrument, 'day', 'week')
+    data = lib.my_trader.get_historical_quotes(instrument, 'day', 'week')
     duration = 60 * 24
     if data:
       for payload in data.get('results'):
@@ -206,14 +122,14 @@ def historical(stockList=['MSFT']):
 
 def getquote(what):
   key = 's:{}'.format(what)
-  res = r.get(key)
+  res = lib.r.get(key)
   if not res:
-    if not my_trader:
-      login()
-    my_trader.print_quote(what)
+    if not lib.my_trader:
+      lib.login()
+    lib.my_trader.print_quote(what)
 
-    res = json.dumps(my_trader.get_quote(what))
-    r.set(key, res, 900)
+    res = json.dumps(lib.my_trader.get_quote(what))
+    lib.r.set(key, res, 900)
   return json.loads(res)
 
 
@@ -225,7 +141,7 @@ def get_history():
     print("Dividends")
 
     if not data:
-      tradeList = my_trader.dividends()
+      tradeList = lib.my_trader.dividends()
     else:
       tradeList = data
 
@@ -240,7 +156,7 @@ def get_history():
       })
 
     if tradeList['next']:
-      data = my_trader.session.get(tradeList['next'])
+      data = lib.my_trader.session.get(tradeList['next'])
       dividends(data.json())
 
 
@@ -248,7 +164,7 @@ def get_history():
     print("trades")
 
     if not data:
-      tradeList = my_trader.order_history()
+      tradeList = lib.my_trader.order_history()
     else:
       tradeList = data
 
@@ -276,11 +192,10 @@ def get_history():
               trade['instrument']['symbol']))
 
     if tradeList['next']:
-        data = my_trader.session.get(tradeList['next'])
+        data = lib.my_trader.session.get(tradeList['next'])
         trades(data.json())
 
-  if not my_trader:
-    login()
+  lib.login()
 
   trades()
   dividends()
@@ -292,7 +207,7 @@ def l():
   """
   symbolList = []
 
-  for k,v in r.hgetall('inst').items():
+  for k,v in lib.r.hgetall('inst').items():
     v = json.loads(v)
     trades = db.run( 'select count(*) from trades where instrument = ?', (k, )).fetchone()
     if trades[0] > 0:
@@ -305,13 +220,13 @@ def l():
   
 def hist(ticker):
   """
-  Find the performance history for a particular instrument
+  Find the performance history for a particular investment
   """
 
   ticker = ticker.lower()
   uid = False
   symbolList = []
-  for k,v in r.hgetall('inst').items():
+  for k,v in lib.r.hgetall('inst').items():
     v = json.loads(v)
     if v.get('symbol').lower() == ticker:
       uid = k
@@ -495,10 +410,9 @@ def hist(ticker):
   ]))
 
 def positions():
-  if not my_trader:
-    login()
+  lib.login()
 
-  positionList = my_trader.positions()
+  positionList = lib.my_trader.positions()
   tickerList = []
   computed = 0
 
