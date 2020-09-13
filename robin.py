@@ -120,19 +120,6 @@ def historical(stockList=['MSFT']):
           })
 
 
-def getquote(what):
-  key = 's:{}'.format(what)
-  res = lib.r.get(key)
-  if not res:
-    if not lib.my_trader:
-      lib.login()
-    lib.my_trader.print_quote(what)
-
-    res = json.dumps(lib.my_trader.get_quote(what))
-    lib.r.set(key, res, 900)
-  return json.loads(res)
-
-
 def get_history():
   """
   Get your trading history and populates it into the database
