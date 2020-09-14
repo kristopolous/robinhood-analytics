@@ -9,7 +9,6 @@ import os
 import db
 import lib
 
-
 def get_archive(stockList):
   global last
 

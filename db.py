@@ -8,7 +8,7 @@ from threading import Lock
 DefaultDbFile = 'trades.db'
 
 _PROCESSOR = {
-    "users"
+  "users"
 }
 
 _SCHEMA = {
@@ -68,9 +68,9 @@ _log = None
 
 
 def _checkForTable(what):
-    global _SCHEMA
-    if what not in _SCHEMA:
-        raise Exception(f"Table {what} not found")
+  global _SCHEMA
+  if what not in _SCHEMA:
+    raise Exception(f"Table {what} not found")
 
 
 def process(res, table, what):
@@ -101,52 +101,52 @@ def process(res, table, what):
 
 
 def get(table, get_value=False, get_key="id"):
-    _checkForTable(table)
+  _checkForTable(table)
 
-    res = run(f"select * from {table} where {get_key}=?", args=(get_value,))
+  res = run(f"select * from {table} where {get_key}=?", args=(get_value,))
 
-    if res:
-        return process(res.fetchone(), table, 'post')
-    else:
-        return None
+  if res:
+    return process(res.fetchone(), table, 'post')
+  else:
+    return None
 
 
 def run(query, args=None, with_last=False, db=None):
-    global _lock
+  global _lock
 
-    """
+  """
+  if args is None:
+  print "%d: %s" % (_dbcount, query)
+  else:
+  $print "%d: %s (%s)" % (_dbcount, query, ', '.join([str(m) for m in args]))
+  """
+
+  _lock.acquire()
+  if db is None:
+    db = connect()
+
+  try:
     if args is None:
-    print "%d: %s" % (_dbcount, query)
+      res = db['c'].execute(query)
     else:
-    $print "%d: %s (%s)" % (_dbcount, query, ', '.join([str(m) for m in args]))
-    """
+      res = db['c'].execute(query, args)
 
-    _lock.acquire()
-    if db is None:
-        db = connect()
+    db['conn'].commit()
+    last = db['c'].lastrowid
 
-    try:
-        if args is None:
-            res = db['c'].execute(query)
-        else:
-            res = db['c'].execute(query, args)
+    if db['c'].rowcount == 0:
+      raise Exception("0 rows")
 
-        db['conn'].commit()
-        last = db['c'].lastrowid
+  except Exception as exc:
+    raise exc
 
-        if db['c'].rowcount == 0:
-            raise Exception("0 rows")
+  finally:
+    _lock.release()
 
-    except Exception as exc:
-        raise exc
+  if with_last:
+    return res, last
 
-    finally:
-        _lock.release()
-
-    if with_last:
-        return res, last
-
-    return res
+  return res
 
 
 def upgrade():
