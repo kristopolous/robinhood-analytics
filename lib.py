@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-from pyrh import Robinhood
 import configparser
 import os
 import hashlib
