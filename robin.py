@@ -407,7 +407,7 @@ def positions():
       getInstrument(position['instrument']))
     if float(position['quantity']) > 0:
       symbol = position['instrument']['symbol']
-      res = getquote(symbol)
+      res = lib.getquote(symbol)
       last_price = res['last_extended_hours_trade_price']
       if last_price is None:
         last_price = res['last_trade_price']

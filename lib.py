@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
+from pyrh import Robinhood
 import configparser
 import os
 import hashlib
-import redis
+import redis, json
 
 r = redis.Redis(
     host='localhost',
@@ -13,6 +14,17 @@ r = redis.Redis(
 )
 
 my_trader = False
+
+def getquote(what):
+  key = 's:{}'.format(what)
+  res = r.get(key)
+  if not res:
+    login()
+    my_trader.print_quote(what)
+
+    res = json.dumps(my_trader.get_quote(what))
+    r.set(key, res, 900)
+  return json.loads(res)
 
 def get_config():
   cp = configparser.ConfigParser()
