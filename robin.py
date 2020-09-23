@@ -1,14 +1,16 @@
 #!/usr/bin/env python3
 from pyrh import Robinhood
 import urllib
-import time
 import sys
 import json
 import os
+import dateparser, datetime, time
 from colr import color
 
 import db
 import lib
+
+YEAR = 365.2524
 
 def get_archive(stockList = None):
   global last
@@ -213,8 +215,8 @@ def hist(ticker = None, is_single = True):
   Find the performance history for a particular investment
   """
   if not ticker:
-    print("{:5} | {:6} | {:5} ({:6}) {:10} | {:5} {:10} | {:>8}".format(
-      "SYMBL", "max", "hold", "count", "date", "beg", "date", "reality"))
+    print("{:6} | {:5} ({:6}) {:17} | {:5} {:10} ".format(
+      "max", "max", "count", "date", "start", "date"))
 
     for i in lib.getsymbols():
       hist(i, False)
@@ -418,16 +420,28 @@ def hist(ticker = None, is_single = True):
       "{}".format(round(reality))
     ]))
   else:
-    k = 'red'
+    strat_col = 'red'
     if reality > buy_and_hold:
-      k = 'green'
+      strat_col = 'green'
     
-    print("{:5} | {:6} | {:5} ({:-6.2f}) {} | {:5} {} | {:5} {} ({:6.2f} - ${:<8.2f})".format(
-        ticker.upper(), 
+    delta_start = datetime.datetime.now() - dateparser.parse(first[2][:10])
+    delta_max = datetime.datetime.now() - dateparser.parse(atmax_date) 
+
+    delta = { 
+        "start": delta_start.days / YEAR,
+        "max": delta_max.days / YEAR
+    }
+    fmt = "{:5.2f}y"
+
+    for k,v in delta.items():
+      sat = 1 - min(1, v)
+      delta[k] = color(fmt.format(v), fore=lib.torgb(0.5, sat, 1), style='bright')
+
+    print("{:6} | {:5} ({:-6.2f}) {} {} | {:5} {} {} | {:5} {} ({:6.2f} - ${:<8.2f})".format(
         buy_low_and_sell_high, 
-        hold_at_max, max_shares, atmax_date,
-        buy_and_hold, first[2][:10], ticker.upper(),
-        color("{:8}".format(round(reality)), fore=k, style='bright'), shares, shares * nowprice),
+        hold_at_max, max_shares, atmax_date, delta.get('max'),
+        buy_and_hold, first[2][:10], delta.get('start'),
+        ticker.upper(), color("{:8}".format(round(reality)), fore=strat_col, style='bright'), shares, shares * nowprice),
     )
 
 def positions():

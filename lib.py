@@ -4,6 +4,8 @@ import configparser
 import os
 import hashlib
 import redis, json, urllib
+import colorsys
+
 
 r = redis.Redis(
     host='localhost',
@@ -15,6 +17,7 @@ r = redis.Redis(
 
 my_trader = False
 
+torgb = lambda *hsl: [int(255 * n) for n in colorsys.hsv_to_rgb(*hsl)]
 getsymbols = lambda: sorted([json.loads(v).get('symbol') for k,v in r.hgetall('inst').items()])
 
 def getquote(what):
@@ -26,7 +29,8 @@ def getquote(what):
     my_trader.print_quote(what)
 
     res = json.dumps(my_trader.get_quote(what))
-    r.set(key, res, 3600)
+    r.set(key, res, config.get('cache'))
+
   return json.loads(res)
 
 def get_config():
