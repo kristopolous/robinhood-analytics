@@ -9,8 +9,14 @@ import os
 import db
 import lib
 
-def get_archive(stockList):
+def get_archive(stockList = None):
   global last
+
+  if stockList is None:
+    stockList = []
+    for k,v in lib.r.hgetall('inst').items():
+      v = json.loads(v)
+      stockList.append(v.get('symbol'))
 
   if type(stockList) is str:
     stockList = [stockList]
@@ -158,7 +164,7 @@ def get_history():
       for execution in trade['executions']:
 
         try:
-          db.insert('trades', {
+          attempt = db.insert('trades', {
             'side': trade['side'],
             'instrument': trade['instrument'].split('/')[-2],
             'quantity': execution['quantity'],
@@ -177,7 +183,7 @@ def get_history():
               trade['side'],
               trade['instrument']['symbol']))
 
-    if tradeList['next']:
+    if tradeList['next'] and attempt is not None:
         data = lib.my_trader.session.get(tradeList['next'])
         trades(data.json())
 

@@ -302,6 +302,7 @@ def insert(table, data, silent=False):
   except Exception as exc:
     if not silent:
       _log.warning("Unable to insert a record {}: {} ({})".format(qstr, json.dumps(values), exc))
+      return None
 
   return last
 
