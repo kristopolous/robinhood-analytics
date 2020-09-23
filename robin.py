@@ -5,6 +5,7 @@ import time
 import sys
 import json
 import os
+from colr import color
 
 import db
 import lib
@@ -417,10 +418,16 @@ def hist(ticker = None, is_single = True):
       "{}".format(round(reality))
     ]))
   else:
-    print("{:5} | {:6} | {:5} ({:-6.2f}) {} | {:5} {} | {:8} ({:6.2f} - ${:<8.2f})".format(
-        ticker.upper(), buy_low_and_sell_high, 
+    k = 'red'
+    if reality > buy_and_hold:
+      k = 'green'
+    
+    print("{:5} | {:6} | {:5} ({:-6.2f}) {} | {:5} {} | {:5} {} ({:6.2f} - ${:<8.2f})".format(
+        ticker.upper(), 
+        buy_low_and_sell_high, 
         hold_at_max, max_shares, atmax_date,
-        buy_and_hold, first[2][:10], round(reality), shares, shares * nowprice),
+        buy_and_hold, first[2][:10], ticker.upper(),
+        color("{:8}".format(round(reality)), fore=k, style='bright'), shares, shares * nowprice),
     )
 
 def positions():

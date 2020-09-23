@@ -1,3 +1,4 @@
 git+https://github.com/robinhood-unofficial/pyrh
 redis
+colr
 python-dateutil
