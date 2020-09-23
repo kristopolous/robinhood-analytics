@@ -3,7 +3,7 @@ from pyrh import Robinhood
 import configparser
 import os
 import hashlib
-import redis, json
+import redis, json, urllib
 
 r = redis.Redis(
     host='localhost',
@@ -15,7 +15,10 @@ r = redis.Redis(
 
 my_trader = False
 
+getsymbols = lambda: sorted([json.loads(v).get('symbol') for k,v in r.hgetall('inst').items()])
+
 def getquote(what):
+  what = what.upper()
   key = 's:{}'.format(what)
   res = r.get(key)
   if not res:
@@ -23,7 +26,7 @@ def getquote(what):
     my_trader.print_quote(what)
 
     res = json.dumps(my_trader.get_quote(what))
-    r.set(key, res, 900)
+    r.set(key, res, 3600)
   return json.loads(res)
 
 def get_config():

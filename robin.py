@@ -13,10 +13,7 @@ def get_archive(stockList = None):
   global last
 
   if stockList is None:
-    stockList = []
-    for k,v in lib.r.hgetall('inst').items():
-      v = json.loads(v)
-      stockList.append(v.get('symbol'))
+    stockList = lib.getsymols()
 
   if type(stockList) is str:
     stockList = [stockList]
@@ -25,7 +22,7 @@ def get_archive(stockList = None):
   ttl = 3 * len(stockList)
 
   print("Gathering {} stocks".format(len(stockList)))
-  alpha = config.get('alpha')
+  alpha = lib.config.get('alpha')
   if not alpha:
     raise("Hey you need to get an alpha advantage key")
 
@@ -40,7 +37,7 @@ def get_archive(stockList = None):
         ix += 1
         url = "https://www.alphavantage.co/query?function=TIME_SERIES_{}_ADJUSTED&symbol={}".format(name, stock)
         cache_time = max(60 * 60 * 24, duration / 2)
-        resraw = cache_get(url, 
+        resraw = lib.cache_get(url, 
           force = force, 
           append = '&apikey={}'.format(alpha[ix % len(alpha)]), 
           cache_time = cache_time
@@ -210,10 +207,19 @@ def l():
 
   print("\n".join(sorted(symbolList)))
   
-def hist(ticker):
+def hist(ticker = None, is_single = True):
   """
   Find the performance history for a particular investment
   """
+  if not ticker:
+    print("{:5} | {:6} | {:5} ({:6}) {:10} | {:5} {:10} | {:>8}".format(
+      "SYMBL", "max", "hold", "count", "date", "beg", "date", "reality"))
+
+    for i in lib.getsymbols():
+      hist(i, False)
+
+    return
+
 
   ticker = ticker.lower()
   uid = False
@@ -288,7 +294,11 @@ def hist(ticker):
   else:
     unit = 25.0 / max_shares 
 
-  rec['buy']['first'] = first[1]
+  try:
+    rec['buy']['first'] = first[1]
+  except:
+    return
+
 
   for row in trades:
     sign = 1
@@ -367,12 +377,17 @@ def hist(ticker):
     else:
       margin -= 100
     
-    print("{} {:<7g} {:<25} {:<5g} {:<10g} {:4} {:4} {:>3} {:5} {} {} ".format(sign, round(shares,3), rep, round(price), round(shares * row[1]), round(row[1]), round(avg_buy), round(avg_sell), margin,  row[2][:10], wk))
+    if is_single:
+      print("{} {:<7g} {:<25} {:<5g} {:<10g} {:4} {:4} {:>3} {:5} {} {} ".format(sign, round(shares,3), rep, round(price), round(shares * row[1]), round(row[1]), round(avg_buy), round(avg_sell), margin,  row[2][:10], wk))
 
-  reality = net_sell - net_buy + trades[-1][1] * shares
+  if shares < 0.0001 and not is_single:
+    return
+
+  nowprice = float(lib.getquote(ticker).get('last_trade_price'))
+  reality = net_sell - net_buy + nowprice * shares
   buy_low_and_sell_high = round(max_shares * max(rec['buy']['high'],rec['sell']['high']) - max_shares * min(rec['sell']['low'], rec['buy']['low']))
-  buy_and_hold = round(max_shares * trades[-1][1] - max_shares * first[1])
-  hold_at_max = round(max_shares * trades[-1][1] - max_shares * atmax_avg)  
+  buy_and_hold = round(max_shares * nowprice - max_shares * first[1])
+  hold_at_max = round(max_shares * nowprice - max_shares * atmax_avg)  
   duration = (time.time() - int(first[4])) / (365.2475 * 24 * 60 * 60)
   atmax_delta = (time.time() - atmax_time) / (365.2475 * 24 * 60 * 60)
 
@@ -382,24 +397,31 @@ def hist(ticker):
     'bah': 100 * abs(buy_and_hold / reality - 1)
   }
 
-  print("\n".join([
-    "({}) buy: {} | sell {} | diff: {}".format(ticker, round(net_buy), round(net_sell), net_sell - net_buy),
-    "records:",
-    " buy:  {:8.2f} - {:8.2f}".format(rec['buy']['low'], rec['buy']['high']),
-    " sell: {:8.2f} - {:8.2f}".format(rec['sell']['low'], rec['sell']['high']),
-    "",
-    "if you bought max low and sold high:",
-    "{} ({}% / {}%)".format(buy_low_and_sell_high, round(roi['blash']), round(roi['blash']/duration)),
-    "",
-    "if you held when you had max ({} - {}):".format(atmax_date, max_shares),
-    "{} ({}% / {}%)".format(hold_at_max, round(roi['ham']), round(roi['ham']/atmax_delta)),
-    "",
-    "if you bought max at the beginning ({}):".format(first[2][:10]),
-    "{} ({}% / {}%)".format(buy_and_hold, round(roi['bah']), round(roi['bah'] / duration)),
-    "",
-    "your strategy:",
-    "{}".format(round(reality))
-  ]))
+  if is_single:
+    print("\n".join([
+      "({}) buy: {} | sell {} | diff: {}".format(ticker, round(net_buy), round(net_sell), net_sell - net_buy),
+      "records:",
+      " buy:  {:8.2f} - {:8.2f}".format(rec['buy']['low'], rec['buy']['high']),
+      " sell: {:8.2f} - {:8.2f}".format(rec['sell']['low'], rec['sell']['high']),
+      "",
+      "if you bought max low and sold high:",
+      "{} ({}% / {}%)".format(buy_low_and_sell_high, round(roi['blash']), round(roi['blash']/duration)),
+      "",
+      "if you held when you had max ({} - {}):".format(atmax_date, max_shares),
+      "{} ({}% / {}%)".format(hold_at_max, round(roi['ham']), round(roi['ham']/atmax_delta)),
+      "",
+      "if you bought max at the beginning ({}):".format(first[2][:10]),
+      "{} ({}% / {}%)".format(buy_and_hold, round(roi['bah']), round(roi['bah'] / duration)),
+      "",
+      "your strategy:",
+      "{}".format(round(reality))
+    ]))
+  else:
+    print("{:5} | {:6} | {:5} ({:-6.2f}) {} | {:5} {} | {:8} ({:6.2f} - ${:<8.2f})".format(
+        ticker.upper(), buy_low_and_sell_high, 
+        hold_at_max, max_shares, atmax_date,
+        buy_and_hold, first[2][:10], round(reality), shares, shares * nowprice),
+    )
 
 def positions():
   lib.login()

@@ -29,3 +29,4 @@ while True:
       eval("robin." + cmd[0])(*cmd[1:])
     except Exception as ex:
       print("Woops: {}".format(ex))
+      raise ex
