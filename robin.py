@@ -224,6 +224,7 @@ def hist(ticker = None, is_single = True):
     return
 
 
+  holdings = positions(False)
   ticker = ticker.lower()
   uid = False
   symbolList = []
@@ -386,6 +387,8 @@ def hist(ticker = None, is_single = True):
   if shares < 0.0001 and not is_single:
     return
 
+  shares = holdings.get(ticker.upper()).get('count')
+
   nowprice = float(lib.getquote(ticker).get('last_trade_price'))
   reality = net_sell - net_buy + nowprice * shares
   buy_low_and_sell_high = round(max_shares * max(rec['buy']['high'],rec['sell']['high']) - max_shares * min(rec['sell']['low'], rec['buy']['low']))
@@ -444,16 +447,21 @@ def hist(ticker = None, is_single = True):
         ticker.upper(), color("{:8}".format(round(reality)), fore=strat_col, style='bright'), shares, shares * nowprice),
     )
 
-def positions():
-  lib.login()
+def positions(do_print = True):
+  holdings = lib.kv('holdings')
 
+  if not do_print and holdings:
+    return holdings
+
+  lib.login()
   positionList = lib.my_trader.positions()
+
   tickerList = []
   computed = 0
+  holdings = {}
 
   for position in positionList['results']:
-    position['instrument'] = json.loads(
-      getInstrument(position['instrument']))
+    position['instrument'] = json.loads(getInstrument(position['instrument']))
     if float(position['quantity']) > 0:
       symbol = position['instrument']['symbol']
       res = lib.getquote(symbol)
@@ -463,7 +471,13 @@ def positions():
 
       computed += float(position['quantity']) * float(last_price)
 
-      print("{:30s} {:5s} {:5.2f} {:10}".format(
-        position['instrument']['name'][:29], symbol, float(position['quantity']), last_price))
+      holdings[symbol] = {'price': float(last_price), 'count': float(position['quantity'])}
+      if do_print:
+        print("{:30s} {:5s} {:5.2f} {:10}".format(
+          position['instrument']['name'][:29], symbol, float(position['quantity']), last_price))
 
-  return {'computed': computed, 'positions': positionList}
+  #holdings['_computed'] = computed
+  #holdings['_raw'] = positionList
+
+  lib.kv('holdings', holdings)
+  return holdings

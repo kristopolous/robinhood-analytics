@@ -20,6 +20,14 @@ my_trader = False
 torgb = lambda *hsl: [int(255 * n) for n in colorsys.hsv_to_rgb(*hsl)]
 getsymbols = lambda: sorted([json.loads(v).get('symbol') for k,v in r.hgetall('inst').items()])
 
+def kv(key, value = None):
+  if value is None:
+    res = r.get(key)
+    if res:
+      return json.loads(res)
+  else:
+    r.set(key, json.dumps(value), config.get('cache'))
+
 def getquote(what):
   what = what.upper()
   key = 's:{}'.format(what)
