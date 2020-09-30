@@ -2,6 +2,7 @@
 import sys
 import logging
 
+import readline
 import robin
 import db
 
