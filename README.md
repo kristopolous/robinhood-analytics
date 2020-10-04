@@ -6,6 +6,8 @@ Right now it's kinda teaching me the hard way about what stocks I should have ju
 
 If you want documentation please file a ticket and I'll write it. Thanks!
 
+You'll need redis and sqlite btw
+
 ## Notes 
 
 This is from a small game I wrote in 2019 but I'm releasing it as a standalone portfolio analyzer
